@@ -8,7 +8,6 @@ def oscillator(omega, k):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((HOST, PORT))
 
-    #s.sendall(b"esrgdhtfjygukhi")
     s.sendall(bytes(omega))
 
     data = s.recv(1024)
@@ -16,6 +15,7 @@ def oscillator(omega, k):
     dphi = omega + k * numpy.sin((omega - int.from_bytes(data,"little"))*numpy.pi/180)
     print(dphi)
     s.sendall(dphi)
+    s.close()
 
 if __name__ == '__main__': 
     # for i in range(10):

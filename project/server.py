@@ -10,12 +10,11 @@ conn, addr = s.accept()
 
 print(f"Connected by {addr}")
 while True:
-    print("listenning'")
     data = conn.recv(1024)
     if not data:
         print("break")
         break
-    print("before send")
+    print(f"Received {data!r}")
     conn.sendall(data)
 s.close()
 
