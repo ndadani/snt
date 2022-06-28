@@ -52,7 +52,7 @@ class Server(object):
             t2.start()
 
             msg=input()
-            if msg=='':
+            if msg=='END':
                 break
             elif msg=='NOW':
                 conn.sendall(str.encode(msg))

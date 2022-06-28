@@ -13,15 +13,17 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)   #TCP
 try:
     s.connect((HOST, PORT))
     s.sendall(str.encode(id+':'+omega+':'+k))
+    print(str.encode(id+':'+omega+':'+k))
     osci_list=dict()
     while True:
         data = s.recv(2048).decode('utf-8')
-        if data is 'NOW':
+        if data == 'NOW':
             break
         data = data.split(':')
         osci_list[data[0]] = float(data[2]) * numpy.sin((float(omega) - float(data[1]))*numpy.pi/180)
     for o in osci_list.values():
-        omega = omega + o
+        aux = float(omega) + o
+        omega = str(aux)
     print(omega)
     s.sendall(str.encode(id+':'+str(omega)+':'+k))
     s.close()
@@ -32,18 +34,7 @@ except Exception as e:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-# #TODO wait/get results from other threads (PORT ?)
+# #TODO wait/get results from other threads (PORT, QUEUE, .. ?)
 # #TODO Format data size, struct.error: unpack requires a buffer of 4 bytes
 # #TODO BrokenPipeError: [Errno 32] Broken pipe
 # #TODO ConnectionResetError: [Errno 54] Connection reset by peer
