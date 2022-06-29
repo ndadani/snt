@@ -1,105 +1,46 @@
 import socket
-import numpy
+import threading
+import TCP
 
-HOST = "127.0.0.1"  # localhost
-PORT = 9001  # The port used by the server
+HOST = "127.0.0.1"  #local host
+PORT = 0
 
-id = input("> id = ")
-omega = input("> omega = ")
-k = input("> k = ")
+class Oscillator(object):
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)   #TCP
+    def __init__(self):
+        self.id = input("> id = ")
+        self.omega = input("> omega = ")
+        self.k = input("> k = ")    # for now, the coupling strength depends on the oscillator, not the connection
+        self.connections = []   # list of ports bound to the oscillator
+        o_list.append(self)
 
-try:
-    s.connect((HOST, PORT))
-    s.sendall(str.encode(id+':'+omega+':'+k))
-    print(str.encode(id+':'+omega+':'+k))
-    osci_list=dict()
-    while True:
-        data = s.recv(2048).decode('utf-8')
-        if data == 'NOW':
-            break
-        data = data.split(':')
-        osci_list[data[0]] = float(data[2]) * numpy.sin((float(omega) - float(data[1]))*numpy.pi/180)
-    for o in osci_list.values():
-        aux = float(omega) + o
-        omega = str(aux)
-    print(omega)
-    s.sendall(str.encode(id+':'+str(omega)+':'+k))
-    s.close()
+    def sockets_generator(self, sock_count):
+        for i in range(sock_count):
+            server = TCP.Node(HOST,PORT)
+            server.connect()
+            self.connections.append(server.port)
 
-except Exception as e:
-    print(e)
+        
+if __name__ == "__main__":
 
+    o_list=[]
+    nodes = input("> Size of the system = ")
+    for n in range(1,int(nodes)+1):
+        o = Oscillator()
+    print(o_list)
 
+    sock_count = len(o_list)-1
+    print(sock_count)
+    for o in o_list:
+        o.sockets_generator(sock_count)
+        sock_count -= 1
+        print(o.connections)
 
+    for i in range(len(o_list)):
+        for j in range(i+1,len(o_list)):
+            o_list[j].connections.append(o_list[i].connections[j-i-1])
+        print(o_list[i].connections)
 
-# #TODO wait/get results from other threads (PORT, QUEUE, .. ?)
-# #TODO Format data size, struct.error: unpack requires a buffer of 4 bytes
-# #TODO BrokenPipeError: [Errno 32] Broken pipe
-# #TODO ConnectionResetError: [Errno 54] Connection reset by peer
-# #TODO include ids to change data
-
-# import socket
-# import numpy
-# import struct
-# import threading
-
-# HOST = "127.0.0.1"  # localhost
-# PORT = 9001  # The port used by the server
-
-# def oscillator(ip, port, omega, k, id):
-#     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)   #TCP
-#     try:
-#         s.connect((ip, port))
-#         omega = float(omega)
-#         send = struct.pack('f',omega)
-#         #send += b"0" * (4 - len(send))
-#         #print(send)
-#         s.sendall(send)
-#         data = struct.unpack('f',s.recv(1024))
-#         print(data)
-#         dphi = omega + float(k) * numpy.sin((omega - data[0])*numpy.pi/180)
-#         print(dphi)
-#         s.sendall(dphi)
-#         s.close()
-#     except Exception as e:
-#         print(e)
-
-# if __name__ == "__main__":
-#     thread_list = dict()
-#     SOCKET_AMOUNT = input("> Number of oscillators = ")
-#     for i in range(1,int(SOCKET_AMOUNT)+1):
-#         id = input("> id = ")
-#         omega = input("> omega = ")
-#         k = input("> k = ")
-#         client_thread = threading.Thread(target=oscillator, args=(HOST, PORT, omega, k, id))
-#         client_thread.setDaemon(True)
-#         thread_list[id]=client_thread
-#     for c in thread_list.values():
-#         c.start()
-
-#     msg = input()
-#     if msg=="":
-#         [x.join() for x in thread_list.values()]
-
-#     # elif msg in thread_list.keys():
-#     #     [x.join() for x in thread_list.values()]
-#     #     omega = input("> omega = ")
-#     #     k = input("> k = ")
-#     #     client_thread = threading.Thread(target=oscillator, args=(HOST, PORT, omega, k, msg))
-#     #     client_thread.setDaemon(True)
-#     #     thread_list[msg]=client_thread
-#     #     client_thread.start()
-    
-
-
-
-
-
-
-    
-
-    
+        
 
 

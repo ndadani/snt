@@ -3,7 +3,7 @@ import socket
 import queue
 
 HOST = "127.0.0.1"
-PORT = 9001  # Port to listen on (non-privileged ports are > 1023)
+PORT = 0  # Port to listen on (non-privileged ports are > 1023)
 
 _sentinel = "STOP" # A sentinel to put on the queue to indicate completion
 
@@ -36,6 +36,7 @@ class Server(object):
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((self.hostname, self.port))
+        print(self.socket.getsockname())
         self.socket.listen()
 
         q = queue.Queue()
