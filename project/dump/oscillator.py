@@ -34,6 +34,7 @@ except Exception as e:
 
 
 
+
 # #TODO wait/get results from other threads (PORT, QUEUE, .. ?)
 # #TODO Format data size, struct.error: unpack requires a buffer of 4 bytes
 # #TODO BrokenPipeError: [Errno 32] Broken pipe
@@ -95,11 +96,5 @@ except Exception as e:
 
 
 
-
-
-
-    
-
-    
 
 

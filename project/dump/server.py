@@ -16,7 +16,6 @@ def handle_recv(connection,q):
     q.put(_sentinel)
     connection.close()
 
-
 def handle_send(connection,q):
     while True:
         data = q.get()
@@ -68,15 +67,6 @@ if __name__ == "__main__":
         server.start()
     except Exception as e:
         print(e)
-
-
-
-
-
-
-
-
-
 
 
 
