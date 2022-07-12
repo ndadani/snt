@@ -40,6 +40,5 @@ class Node(object):
 
 #TODO build the connection handlers
 #TODO close
-#TODO multiprocessing
 
 
