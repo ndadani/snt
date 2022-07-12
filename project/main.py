@@ -43,7 +43,6 @@ def distribute(l:list , N:int):
             h+=1
             j+=1
 
-def threaded_connection(host, port):
 
 
 
