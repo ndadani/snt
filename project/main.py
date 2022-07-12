@@ -43,7 +43,11 @@ def distribute(l:list , N:int):
             h+=1
             j+=1
 
-def core(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list , nodes:int):
+def threaded_connection(host, port):
+
+
+
+def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list , nodes:int):
     o = Oscillator(id,omega,k,q)
     sock_count=nodes-1-len(o_list)
     o.sockets_generator(sock_count, nodes)
@@ -63,7 +67,7 @@ if __name__ == "__main__":
         for n in range(nodes):
             try :
                 data = f.readline().split(',')
-                process = multiprocessing.Process(target=core, args=(shared_list,n,data[0],data[1],q,o_list,nodes))
+                process = multiprocessing.Process(target=replica, args=(shared_list,n,data[0],data[1],q,o_list,nodes))
                 process.daemon = True
                 process.start()
                 o_list.append(q.get())
