@@ -1,16 +1,5 @@
-import threading
 import socket
-
-def handle(connection):
-    try:
-        while True:
-            data = connection.recv(2048)
-            print(data)
-            connection.send(data)
-    except:
-        pass
-    finally:
-        connection.close()
+import time
 
 class Node(object):
 
@@ -18,27 +7,25 @@ class Node(object):
         self.hostname = hostname
         self.port = port
 
-    def start(self):
-        try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def start(self,o,to):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048)
-            #self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.socket.bind((self.hostname, self.port))    #if we bind to port 0, the OS will pick an available port
             self.port = self.socket.getsockname()[1]
-            # print(self.port)
             self.socket.listen()
-
             while True:
-                conn, address = self.socket.accept()
-                # t = threading.Thread(target=handle, args=(conn, ))
-                # t.daemon = True
-                # t.start()
+                try :
+                    conn, address = self.socket.accept()
+                    with conn:
+                        data = conn.recv(2048)
+                        # ti = int(round(time.time() * 1000))
+                        # msg = str(o.id)+str(int(o.omega)*(ti-to))
+                        # self.socket.send(str.encode(msg.zfill(17)))
+                        print(data)
+                        conn.send(data)
+                except Exception as e :
+                    conn, address = self.socket.accept()
 
-        except Exception as e:
-            print(e)
-
-
-#TODO build the connection handlers
-#TODO close
 
 
