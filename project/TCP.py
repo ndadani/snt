@@ -25,7 +25,7 @@ class Node(object):
                     for key, mask in events:
                         if key.data is None:
                             conn, addr = key.fileobj.accept()  # Should be ready to read
-                            print(f"Accepted connection from {addr}")
+                            # print(f"Accepted connection from {addr}")
                             conn.setblocking(False)
                             data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
                             events = selectors.EVENT_READ | selectors.EVENT_WRITE

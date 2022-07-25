@@ -15,6 +15,7 @@ import time
 HOST = "127.0.0.1"  #local host
 PORT = 0
 LOOP = 2
+BUF_SIZE = 1024
 
 
 class Oscillator(object):
@@ -42,7 +43,7 @@ class Oscillator(object):
     def threaded_connection(self,port,to):
         ti = int(round(time.time() * 1000))
         # msg = str(int(self.omega)*(ti-to))
-        messages = [str.encode(str(i)) for i in range(0,LOOP)]
+        messages = [str.encode(str(i*10)) for i in range(0,LOOP)]
         sel = selectors.DefaultSelector()
         conn_count=1
         for i in range(0, conn_count):
@@ -67,7 +68,7 @@ class Oscillator(object):
                         for key, mask in events:
                             if key.data is None:
                                 conn, addr = key.fileobj.accept()  # Should be ready to read
-                                print(f"Accepted connection from {addr}")
+                                # print(f"Accepted connection from {addr}")
                                 conn.setblocking(False)
                                 data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
                                 events = selectors.EVENT_READ | selectors.EVENT_WRITE
@@ -76,19 +77,23 @@ class Oscillator(object):
                                 sock = key.fileobj
                                 data = key.data
                                 if mask & selectors.EVENT_READ:
-                                    recv_data = sock.recv(1024)  # Should be ready to read
+                                    recv_data = sock.recv(16)  # Should be ready to read
+                                    print(str(BUF_SIZE)+"—————————BUF_SIZE")
                                     if recv_data:
-                                        print(f"Received {recv_data!r} from connection {data.connid}")
+                                        print(f"{key.fd} : Received {recv_data!r}")
+                                        print("———recv_data———"+str(sys.getsizeof(recv_data)))
                                         data.recv_total += len(recv_data)
                                     if not recv_data or data.recv_total == data.msg_total:
-                                        print(f"Closing connection {data.connid}")
+                                        # print(f"Closing connection {data.connid}")
                                         sel.unregister(sock)
                                         sock.close()
                                 if mask & selectors.EVENT_WRITE:
                                     if not data.outb and data.messages:
                                         data.outb = data.messages.pop(0)
                                     if data.outb:
-                                        print(f"{key.fd} Sending {data.outb!r} to connection {data.connid}")
+                                        print(f"{key.fd} : Sending {data.outb!r}")
+                                        BUF_SIZE=sys.getsizeof(data.outb)
+                                        print("———data.outb———"+str(sys.getsizeof(data.outb)))
                                         sent = sock.send(data.outb)  # Should be ready to write
                                         data.outb = data.outb[sent:]
                 except KeyboardInterrupt:
