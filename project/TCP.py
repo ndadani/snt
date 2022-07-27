@@ -5,7 +5,7 @@ import types
 
 class Node(object):
 
-    def __init__(self, hostname, port=0):
+    def __init__(self, hostname, port):
         self.hostname = hostname
         self.port = port
 
@@ -14,7 +14,7 @@ class Node(object):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind((self.hostname, self.port))    #if we bind to port 0, the OS will pick an available port
+            self.socket.bind((self.hostname, self.port))
             self.port = self.socket.getsockname()[1]
             self.socket.listen()
             self.socket.setblocking(False)
@@ -36,10 +36,8 @@ class Node(object):
                             if mask & selectors.EVENT_READ:
                                 recv_data = sock.recv(1024)  # Should be ready to read
                                 if recv_data:
-                                    print(f"\033[92m{self.port} : Received {recv_data!r} from {o.id}\033[0m")
+                                    # print(f"\033[92m{self.port} : Received {recv_data!r} from {o.id}\033[0m")
                                     # aux=recv_data.split(b"*")
-                                    q.put(o.id)
-                                    q.put(recv_data)
                                     data.outb += recv_data
                                 else:
                                     # print(f"Closing connection to {data.addr}")
@@ -48,7 +46,10 @@ class Node(object):
                             if mask & selectors.EVENT_WRITE:
                                 if data.outb:
                                     # print(f"Echoing {data.outb!r} to {data.addr}")
-                                    # print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m")
+                                    print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m")
+                                    q.put(o.id)
+                                    q.put(data.outb)
+                                    q.put(self.port)
                                     sent = sock.send(data.outb)  # Should be ready to write
                                     data.outb = data.outb[sent:]
             except KeyboardInterrupt:
