@@ -9,7 +9,7 @@ class Node(object):
         self.hostname = hostname
         self.port = port
 
-    def start(self,o,to):
+    def start(self,o,to,q):
         sel = selectors.DefaultSelector()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048)
@@ -36,6 +36,10 @@ class Node(object):
                             if mask & selectors.EVENT_READ:
                                 recv_data = sock.recv(1024)  # Should be ready to read
                                 if recv_data:
+                                    print(f"\033[92m{self.port} : Received {recv_data!r} from {o.id}\033[0m")
+                                    # aux=recv_data.split(b"*")
+                                    q.put(o.id)
+                                    q.put(recv_data)
                                     data.outb += recv_data
                                 else:
                                     # print(f"Closing connection to {data.addr}")
@@ -44,6 +48,7 @@ class Node(object):
                             if mask & selectors.EVENT_WRITE:
                                 if data.outb:
                                     # print(f"Echoing {data.outb!r} to {data.addr}")
+                                    # print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m")
                                     sent = sock.send(data.outb)  # Should be ready to write
                                     data.outb = data.outb[sent:]
             except KeyboardInterrupt:

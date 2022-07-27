@@ -1,12 +1,9 @@
-import io
 import multiprocessing
 from queue import Queue
 import socket
 import sys
-
 import selectors
 import types
-
 import numpy
 import TCP
 import threading
@@ -14,9 +11,8 @@ import time
 
 HOST = "127.0.0.1"  #local host
 PORT = 0
-LOOP = 2
+LOOP = 1
 BUF_SIZE = 1024
-
 
 class Oscillator(object):
 
@@ -25,12 +21,13 @@ class Oscillator(object):
         self.omega = omega
         self.k = k    # for now, the coupling strength depends on the oscillator, not the connection
         self.ports = []   # list of ports bound to the oscillator
+        self.omega_list = [omega]
         q.put(self)
 
-    def sockets_generator(self , sock_count:int, nodes:int):
+    def sockets_generator(self , sock_count:int, nodes:int, q_info:Queue):
         for i in range(sock_count):
             server = TCP.Node(HOST,PORT)
-            t = threading.Thread(target=server.start, args=(self,to))
+            t = threading.Thread(target=server.start, args=(self,to,q_info))
             t.daemon = True
             t.start()
             while server.port == 0:
@@ -40,10 +37,10 @@ class Oscillator(object):
         # print(self.ports)
 
 
-    def threaded_connection(self,port,to):
+    def threaded_connection(self, port:int , to:int, q_info:Queue):
         ti = int(round(time.time() * 1000))
-        # msg = str(int(self.omega)*(ti-to))
-        messages = [str.encode(str(i*10)) for i in range(0,LOOP)]
+        msg = str(self.omega)+"/"+str(ti-to)
+        messages = [str.encode("S"+msg+"E*") for i in range(0,LOOP)]
         sel = selectors.DefaultSelector()
         conn_count=1
         for i in range(0, conn_count):
@@ -77,11 +74,12 @@ class Oscillator(object):
                                 sock = key.fileobj
                                 data = key.data
                                 if mask & selectors.EVENT_READ:
-                                    recv_data = sock.recv(16)  # Should be ready to read
-                                    print(str(BUF_SIZE)+"—————————BUF_SIZE")
+                                    recv_data = sock.recv(BUF_SIZE)  # Should be ready to read
                                     if recv_data:
-                                        print(f"{key.fd} : Received {recv_data!r}")
-                                        print("———recv_data———"+str(sys.getsizeof(recv_data)))
+                                        # print(f"\033[31m{self.id} : Received {recv_data!r} from {port}\033[0m")
+                                        # print("———recv_data———"+str(sys.getsizeof(recv_data)))
+                                        q_info.put(self.id)
+                                        q_info.put(recv_data)
                                         data.recv_total += len(recv_data)
                                     if not recv_data or data.recv_total == data.msg_total:
                                         # print(f"Closing connection {data.connid}")
@@ -91,9 +89,7 @@ class Oscillator(object):
                                     if not data.outb and data.messages:
                                         data.outb = data.messages.pop(0)
                                     if data.outb:
-                                        print(f"{key.fd} : Sending {data.outb!r}")
-                                        BUF_SIZE=sys.getsizeof(data.outb)
-                                        print("———data.outb———"+str(sys.getsizeof(data.outb)))
+                                        print(f"\033[31m{self.id} : Sending {data.outb!r} to {port}\033[0m")
                                         sent = sock.send(data.outb)  # Should be ready to write
                                         data.outb = data.outb[sent:]
                 except KeyboardInterrupt:
@@ -135,7 +131,8 @@ def distribute(l:list , N:int):
 def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list , nodes:int, to:int):
     o = Oscillator(id,omega,k,q)
     sock_count=nodes-1-len(o_list)
-    o.sockets_generator(sock_count, nodes)
+    q_info = Queue()
+    o.sockets_generator(sock_count, nodes, q_info)
     ports_list.extend(o.ports)
 
     if len(ports_list)==nodes*(nodes-1) :  #c'est pas ce qu'il faut faire mais ça marche pour l'instant
@@ -145,9 +142,16 @@ def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list 
     #     wait
 
     for port in ports_list[o.id:o.id+nodes-1]:
-            t = threading.Thread(target=o.threaded_connection, args=(port,to))
+            t = threading.Thread(target=o.threaded_connection, args=(port,to,q_info))
             t.daemon = True
             t.start()
+
+    time.sleep(3)
+    while not q_info.empty():
+        print(q_info.get())
+
+
+    
     
 if __name__ == "__main__":
     to = int(round(time.time() * 1000))
@@ -163,7 +167,7 @@ if __name__ == "__main__":
             try :
                 data = f.readline().split(',')
                 # process = multiprocessing.Process(target=replica, args=(shared_list,n,data[0],data[1],q,o_list,nodes))
-                t = threading.Thread(target=replica, args=(shared_list,n,data[0],data[1],q,o_list,nodes,to))     # pour l'instant
+                t = threading.Thread(target=replica, args=(shared_list,n+1,data[0],data[1],q,o_list,nodes,to))     # pour l'instant
                 t.daemon = True
                 t.start()
                 o_list.append(q.get())
