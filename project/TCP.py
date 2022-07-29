@@ -46,10 +46,10 @@ class Node(object):
                             if mask & selectors.EVENT_WRITE:
                                 if data.outb:
                                     # print(f"Echoing {data.outb!r} to {data.addr}")
-                                    print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m")
-                                    q.put(o.id)
-                                    q.put(data.outb)
-                                    q.put(self.port)
+                                    # print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m")
+                                    # q.put(o.id)
+                                    # q.put(data.outb)
+                                    # q.put(self.port)
                                     sent = sock.send(data.outb)  # Should be ready to write
                                     data.outb = data.outb[sent:]
             except KeyboardInterrupt:

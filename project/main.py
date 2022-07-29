@@ -25,6 +25,18 @@ def distribute(l:list , N:int):
             h+=1
             j+=1
 
+def which_osc(ports_list:list, N:int):
+    osc = []
+    for p in range(len(ports_list)):
+        index_pos_list = []
+        for i in range(len(ports_list)):
+            if i!=p and ports_list[i] == ports_list[p]:
+                index_pos_list.append(i)
+        for j in index_pos_list:
+            osc.append(j//(N-1))
+    return osc
+
+
 class Oscillator(object):
 
     def __init__(self , id:int , omega:int , k:int , ports:list, q:Queue):
@@ -36,14 +48,14 @@ class Oscillator(object):
         q.put(self)
 
     def sockets_generator(self , sock_count:int, nodes:int, q_info:Queue):
-        print(self.id , self.ports)
+        # print(self.id , self.ports)
         for i in range(sock_count):
             server = TCP.Node(HOST,self.ports[i])
             t = threading.Thread(target=server.start, args=(self,to,q_info))
             t.daemon = True
             t.start()
 
-    def threaded_connection(self, port:int , to:int, q_info:Queue):
+    def threaded_connection(self, port:int , to:int, q_info:Queue, which_osc:int):
         ti = int(round(time.time() * 1000))
         msg = str(self.omega)+"/"+str(ti-to)
         messages = [str.encode("S"+msg+"E*") for i in range(0,LOOP)]
@@ -82,10 +94,11 @@ class Oscillator(object):
                                 if mask & selectors.EVENT_READ:
                                     recv_data = sock.recv(BUF_SIZE)  # Should be ready to read
                                     if recv_data:
-                                        # print(f"\033[31m{self.id} : Received {recv_data!r} from {port}\033[0m")
+                                        print(f"\033[92m{self.id} : Received {recv_data!r} from {which_osc} on port {port}\033[0m")
                                         # print("———recv_data———"+str(sys.getsizeof(recv_data)))
-                                        # q_info.put(self.id)
-                                        # q_info.put(recv_data)
+                                        q_info.put(self.id)
+                                        q_info.put(which_osc)
+                                        q_info.put(recv_data)
                                         data.recv_total += len(recv_data)
                                     if not recv_data or data.recv_total == data.msg_total:
                                         # print(f"Closing connection {data.connid}")
@@ -95,7 +108,7 @@ class Oscillator(object):
                                     if not data.outb and data.messages:
                                         data.outb = data.messages.pop(0)
                                     if data.outb:
-                                        print(f"\033[31m{self.id} : Sending {data.outb!r} to {port}\033[0m")
+                                        print(f"\033[31m{self.id} : Sending {data.outb!r} to {which_osc} on port {port}\033[0m")
                                         sent = sock.send(data.outb)  # Should be ready to write
                                         data.outb = data.outb[sent:]
                 except KeyboardInterrupt:
@@ -107,14 +120,14 @@ class Oscillator(object):
 
 
 
-def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list , nodes:int, to:int):
+def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list , nodes:int, to:int, which_osc:list):
     o = Oscillator(id,omega,k,ports_list,q)
     sock_count=nodes-1-len(o_list)
     q_info = Queue()
     o.sockets_generator(sock_count, nodes, q_info)
     
-    for port in o.ports:
-            t = threading.Thread(target=o.threaded_connection, args=(port,to,q_info))
+    for i in range(len(o.ports)):
+            t = threading.Thread(target=o.threaded_connection, args=(o.ports[i],to,q_info,which_osc[i]))
             t.daemon = True
             t.start()
 
@@ -147,13 +160,15 @@ if __name__ == "__main__":
     # print(ports_list)
     distribute(ports_list, nodes)
     print(ports_list)
+    # print(which_osc(ports_list,nodes))
+    osc = which_osc(ports_list,nodes)
 
     with open('project/data.txt','r') as f:
         for n in range(nodes):
             try :
                 data = f.readline().split(',')
                 # process = multiprocessing.Process(target=replica, args=(shared_list,n,data[0],data[1],q,o_list,nodes))
-                t = threading.Thread(target=replica, args=(ports_list[n*(nodes-1):n*(nodes-1)+nodes-1],n,data[0],data[1],q,o_list,nodes,to))     # pour l'instant
+                t = threading.Thread(target=replica, args=(ports_list[n*(nodes-1):n*(nodes-1)+nodes-1],n,data[0],data[1],q,o_list,nodes,to,osc[n*(nodes-1):n*(nodes-1)+nodes-1]))     # pour l'instant
                 t.daemon = True
                 t.start()
                 o_list.append(q.get())
