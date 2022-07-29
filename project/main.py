@@ -11,7 +11,7 @@ import time
 
 HOST = "127.0.0.1"  #local host
 PORT = 0
-LOOP = 1
+LOOP = 2
 BUF_SIZE = 1024
 
 def distribute(l:list , N:int):
@@ -44,7 +44,7 @@ class Oscillator(object):
         self.omega = omega
         self.k = k    # for now, the coupling strength depends on the oscillator, not the connection
         self.ports = ports   # list of ports bound to the oscillator
-        self.omega_list = [omega]
+        self.evolution = []
         q.put(self)
 
     def sockets_generator(self , sock_count:int, nodes:int, q_info:Queue):
@@ -57,8 +57,9 @@ class Oscillator(object):
 
     def threaded_connection(self, port:int , to:int, q_info:Queue, which_osc:int):
         ti = int(round(time.time() * 1000))
-        msg = str(self.omega)+"/"+str(ti-to)
-        messages = [str.encode("S"+msg+"E*") for i in range(0,LOOP)]
+        msg = str.encode("S"+str(self.omega)+"/"+str(ti-to)+"E*")
+        self.evolution.append(msg)
+        messages = [msg for i in range(0,LOOP)]
         sel = selectors.DefaultSelector()
         conn_count=1
         for i in range(0, conn_count):

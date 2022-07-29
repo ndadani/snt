@@ -37,8 +37,11 @@ class Node(object):
                                 recv_data = sock.recv(1024)  # Should be ready to read
                                 if recv_data:
                                     # print(f"\033[92m{self.port} : Received {recv_data!r} from {o.id}\033[0m")
-                                    # aux=recv_data.split(b"*")
-                                    data.outb += recv_data
+                                    aux=recv_data.split(b"*")
+                                    for x in aux:
+                                        if x:
+                                            # print(x)
+                                            data.outb += x
                                 else:
                                     # print(f"Closing connection to {data.addr}")
                                     sel.unregister(sock)
@@ -56,10 +59,6 @@ class Node(object):
                 print("Caught keyboard interrupt, exiting")
             finally:
                 sel.close()
-
-
-
-
 
             # while True:
             #     try :
