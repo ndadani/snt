@@ -9,7 +9,7 @@ class Node(object):
         self.hostname = hostname
         self.port = port
 
-    def start(self,o,to,q):
+    def start(self,o,to,q,osc):
         # print("HEY")
         sel = selectors.DefaultSelector()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
@@ -51,7 +51,7 @@ class Node(object):
                             if mask & selectors.EVENT_WRITE:
                                 if data.outb:
                                     # print(f"Echoing {data.outb!r} to {data.addr}")
-                                    print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m on port {self.port}")
+                                    print(f"\033[92m{o.id} : Sending {data.outb!r} to {osc} on port {self.port}\033[0m")
                                     sent = sock.send(data.outb)
                                     data.outb = data.outb[sent:]
             except KeyboardInterrupt:

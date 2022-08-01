@@ -48,11 +48,11 @@ class Oscillator(object):
         self.evolution = []
         q.put(self)
 
-    def sockets_generator(self , sock_count:int, nodes:int, q_info:Queue):
+    def sockets_generator(self , sock_count:int, nodes:int, q_info:Queue, which_osc:list):
         for i in range(sock_count):
             print(self.id , "<<<")
             server = TCP.Node(HOST,self.ports[i])
-            t = threading.Thread(target=server.start, args=(self,to,q_info))
+            t = threading.Thread(target=server.start, args=(self,to,q_info,which_osc[i]))
             t.daemon = True
             t.start()
             # threads.append(t)
@@ -131,7 +131,7 @@ def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list 
     sock_count=nodes-1-len(o_list)
     # print(sock_count)
     q_info = Queue()
-    o.sockets_generator(sock_count, nodes, q_info)
+    o.sockets_generator(sock_count, nodes, q_info, which_osc)
     for i in range(len(o.ports)-sock_count-1,-1,-1):
         print(">>>" , o.id)
         t = threading.Thread(target=o.threaded_connection, args=(o.ports[i],to,q_info,which_osc[i]))
@@ -141,8 +141,8 @@ def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list 
         # threads.append(t)
 
     time.sleep(2)
-    while not q_info.empty():
-        print(q_info.get())
+    # while not q_info.empty():
+    #     print(q_info.get())
 
     # for t in threads:
     #     t.join()
