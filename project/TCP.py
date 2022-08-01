@@ -10,6 +10,7 @@ class Node(object):
         self.port = port
 
     def start(self,o,to,q):
+        # print("HEY")
         sel = selectors.DefaultSelector()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048)
@@ -24,7 +25,7 @@ class Node(object):
                     events = sel.select(timeout=None)
                     for key, mask in events:
                         if key.data is None:
-                            conn, addr = key.fileobj.accept()  # Should be ready to read
+                            conn, addr = key.fileobj.accept()
                             # print(f"Accepted connection from {addr}")
                             conn.setblocking(False)
                             data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
@@ -34,10 +35,11 @@ class Node(object):
                             sock = key.fileobj
                             data = key.data
                             if mask & selectors.EVENT_READ:
-                                recv_data = sock.recv(1024)  # Should be ready to read
+                                recv_data = sock.recv(1024)
                                 if recv_data:
                                     # print(f"\033[92m{self.port} : Received {recv_data!r} from {o.id}\033[0m")
                                     aux=recv_data.split(b"*")
+                                    # print(aux)
                                     for x in aux:
                                         if x:
                                             # print(x)
@@ -49,29 +51,14 @@ class Node(object):
                             if mask & selectors.EVENT_WRITE:
                                 if data.outb:
                                     # print(f"Echoing {data.outb!r} to {data.addr}")
-                                    # print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m")
-                                    # q.put(o.id)
-                                    # q.put(data.outb)
-                                    # q.put(self.port)
-                                    sent = sock.send(data.outb)  # Should be ready to write
+                                    print(f"\033[92m{self.port} : Sending {data.outb!r} to {o.id}\033[0m on port {self.port}")
+                                    sent = sock.send(data.outb)
                                     data.outb = data.outb[sent:]
             except KeyboardInterrupt:
                 print("Caught keyboard interrupt, exiting")
             finally:
                 sel.close()
 
-            # while True:
-            #     try :
-            #         conn, address = self.socket.accept()
-            #         with conn:
-            #             data = conn.recv(2048)
-            #             # ti = int(round(time.time() * 1000))
-            #             # msg = str(o.id)+str(int(o.omega)*(ti-to))
-            #             # self.socket.send(str.encode(msg.zfill(17)))
-            #             print(data)
-            #             conn.send(data)
-            #     except Exception as e :
-            #         conn, address = self.socket.accept()
 
 
 
