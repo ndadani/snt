@@ -1,7 +1,10 @@
+# GREEN
 import socket
 import selectors
 import time
 import types
+
+LOOP = 1
 
 class Node(object):
 
@@ -10,54 +13,66 @@ class Node(object):
         self.port = port
 
     def start(self,o,to,q,osc):
-        # print("HEY")
+
+        ti = int(round(time.time() * 1000))
+        msg = str.encode("S"+str(o.omega)+"/"+str(ti-to)+"E")
+        o.evolution.append(msg)
+        messages = [msg for i in range(0,LOOP)]
+        data = types.SimpleNamespace(
+            msg_total=sum(len(m) for m in messages),
+            recv_total=0,
+            messages=messages.copy(),
+            outb=b"",
+        )
+
         sel = selectors.DefaultSelector()
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048)
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind((self.hostname, self.port))
-            self.port = self.socket.getsockname()[1]
-            self.socket.listen()
-            self.socket.setblocking(False)
-            sel.register(self.socket, selectors.EVENT_READ, data=None)
+        while True:
             try:
-                while True:
-                    events = sel.select(timeout=None)
-                    for key, mask in events:
-                        if key.data is None:
-                            conn, addr = key.fileobj.accept()
-                            # print(f"Accepted connection from {addr}")
-                            conn.setblocking(False)
-                            data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-                            events = selectors.EVENT_READ | selectors.EVENT_WRITE
-                            sel.register(conn, events, data=data)
-                        else:
-                            sock = key.fileobj
-                            data = key.data
-                            if mask & selectors.EVENT_READ:
-                                recv_data = sock.recv(1024)
-                                if recv_data:
-                                    # print(f"\033[92m{self.port} : Received {recv_data!r} from {o.id}\033[0m")
-                                    aux=recv_data.split(b"*")
-                                    # print(aux)
-                                    for x in aux:
-                                        if x:
-                                            # print(x)
-                                            data.outb += x
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.socket:
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2048)
+                    self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    self.socket.setblocking(False)
+                    self.socket.bind((self.hostname, self.port))
+                    self.socket.listen()
+
+                    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+                    sel.register(self.socket, events, data=None)
+
+                    try:
+                        while True:
+                            events = sel.select(timeout=None)
+                            for key, mask in events:
+                                if key.data is None:
+                                    conn, addr = key.fileobj.accept()
+                                    conn.setblocking(False)
+                                    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+                                    sel.register(conn, events, data=data)
                                 else:
-                                    # print(f"Closing connection to {data.addr}")
-                                    sel.unregister(sock)
-                                    sock.close()
-                            if mask & selectors.EVENT_WRITE:
-                                if data.outb:
-                                    # print(f"Echoing {data.outb!r} to {data.addr}")
-                                    print(f"\033[92m{o.id} : Sending {data.outb!r} to {osc} on port {self.port}\033[0m")
-                                    sent = sock.send(data.outb)
-                                    data.outb = data.outb[sent:]
-            except KeyboardInterrupt:
-                print("Caught keyboard interrupt, exiting")
-            finally:
-                sel.close()
+                                    sock = key.fileobj
+                                    data = key.data
+                                    if mask & selectors.EVENT_READ:
+                                        recv_data = sock.recv(1024)
+                                        if recv_data:
+                                            print(f"\033[92m{o.id} : Received {recv_data!r} from {osc} on port {self.port}\033[0m")
+                                            q.put(osc)
+                                            q.put(recv_data)
+                                        else:
+                                            # print(f"Closing connection of {o.id} to {osc}")
+                                            sel.unregister(sock)
+                                            sock.close()
+                                    if mask & selectors.EVENT_WRITE:
+                                        if not data.outb and data.messages:
+                                            data.outb = data.messages.pop(0)
+                                        if data.outb:
+                                            print(f"\033[92m{o.id} : Sending {data.outb!r} to {osc} on port {self.port}\033[0m")
+                                            sent = sock.send(data.outb)
+                                            data.outb = data.outb[sent:]
+                    except KeyboardInterrupt:
+                        print("Caught keyboard interrupt, exiting")
+                    finally:
+                        sel.close()
+            except:
+                pass
 
 
 
