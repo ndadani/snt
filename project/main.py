@@ -1,4 +1,4 @@
-#RED
+from datetime import datetime
 import multiprocessing
 from queue import Queue
 import socket
@@ -38,30 +38,34 @@ def which_osc(ports_list:list, N:int):
 
 class Oscillator(object):
 
-    def __init__(self , id:int , omega:int , k:int , ports:list, q:Queue):
+    def __init__(self , id:int , omega:int , ports:list, q:Queue):
         self.id = id
         self.omega = omega
-        self.k = k    # for now, the coupling strength depends on the oscillator, not the connection
-        self.ports = ports   # list of ports bound to the oscillator
-        self.evolution = []
+        self.k = dict()
+        self.ports = ports
+        self.evolution = dict()
+        self.history = dict()
         q.put(self)
 
-    def sockets_generator(self , sock_count:int, nodes:int, q_info:Queue, which_osc:list):
+    def sockets_generator(self , sock_count:int, q_info:Queue, which_osc:list, signal:list):
         for i in range(sock_count):
-            print("\033[92mServer >>>\033[0m", self.id)
+            # print("\033[92mServer >>>\033[0m", self.id)
             server = TCP.Node(HOST,self.ports[i])
-            t = threading.Thread(target=server.start, args=(self,to,q_info,which_osc[i]))
+            t = threading.Thread(target=server.start, args=(self,to,q_info,which_osc[i],signal[i]))
             t.daemon = True
             t.start()
             # threads.append(t)
 
-    def threaded_connection(self, port:int , to:int, q_info:Queue, which_osc:int):
-        ti = int(round(time.time() * 1000))
-        msg = str.encode("S"+str(self.omega)+"/"+str(ti-to)+"E")
-        self.evolution.append(msg)
-        messages = [msg for i in range(0,LOOP)]
+    def threaded_connection(self, port:int , to:int, q_info:Queue, which_osc:int, signal:threading.Event):
+        # ti = int(round(time.time() * 1000))
+        now = datetime.now()
+        ti = datetime.timestamp(now)
+        msg = str.encode("S"+str(which_osc)+'/'+str(self.id)+'/'+str(self.omega)+"/"+str(ti-to)+"E")
+        self.evolution[ti-to] = self.omega
+        messages = [msg]
         data = types.SimpleNamespace(
-            msg_total=sum(len(m) for m in messages),
+            # msg_total=sum(len(m) for m in messages),
+            msg_total=LOOP,
             recv_total=0,
             messages=messages.copy(),
             outb=b"",
@@ -92,12 +96,19 @@ class Oscillator(object):
                                     sock = key.fileobj
                                     data = key.data
                                     if mask & selectors.EVENT_READ:
-                                        recv_data = sock.recv(1024)
+                                        recv_data = sock.recv(2048)
                                         if recv_data:
-                                            print(f"\033[31m{self.id} : Received {recv_data!r} from {which_osc} on port {port}\033[0m")
-                                            q_info.put(which_osc)
-                                            q_info.put(recv_data)
-                                            data.recv_total += len(recv_data)
+                                            print(f"\033[92m{self.id} : Received {recv_data!r} from {which_osc} on port {port}\033[0m")
+                                            aux = recv_data.decode()
+                                            aux = aux.strip('ES')
+                                            # print(aux)
+                                            l = aux.split('/',1)
+                                            # print(l)
+                                            if l[0]==str(self.id):
+                                                q_info.put(l[1])
+                                            # data.recv_total += len(recv_data)
+                                            data.recv_total += 1
+                                            signal.set()
                                         if not recv_data or data.recv_total == data.msg_total:
                                             # print(f"Closing connection of {self.id} to {which_osc}")
                                             sel.unregister(sock)
@@ -119,31 +130,48 @@ class Oscillator(object):
 
 
 
-def replica(ports_list:list, id:int , omega:int , k:int , q:Queue , o_list:list , nodes:int, to:int, which_osc:list):
-    o = Oscillator(id,omega,k,ports_list,q)
+def replica(ports_list:list, id:int , omega:int , q:Queue , o_list:list , nodes:int, to:int, which_osc:list):
+    o = Oscillator(id,omega,ports_list,q)
     sock_count=nodes-1-len(o_list)
     q_info = Queue()
-    o.sockets_generator(sock_count, nodes, q_info, which_osc)
+    event = threading.Event()
+    signalS = [threading.Event() for i in range(sock_count)]
+    signalC = [threading.Event() for i in range(len(o.ports)-sock_count)]
+    # print(signalS,signalC)
+
+    o.sockets_generator(sock_count, q_info, which_osc, signalS)
+
     for i in range(len(o.ports)-sock_count-1,-1,-1):
-        print("\033[31mClient >>>\033[0m" , o.id)
-        t = threading.Thread(target=o.threaded_connection, args=(o.ports[i],to,q_info,which_osc[i]))
+        # print("\033[31mClient >>>\033[0m" , o.id)
+        t = threading.Thread(target=o.threaded_connection, args=(o.ports[i],to,q_info,which_osc[i], signalC[i]))
         t.daemon = True
         t.start()
         # t.join()
         # threads.append(t)
 
-    time.sleep(2)
-    # while not q_info.empty():
-    #     print(q_info.get())
+    # count = 0
+    # while True:
+    #     count = 0
+    #     for e in signalS+signalC:
+    #         if e.is_set():
+    #             count+=1
+    #     if count==nodes-1:
+    #         event.set()
+
+    # event.wait(nodes)
+
+    time.sleep(nodes)
+    # for e in signalC+signalS:
+    #     print(e.is_set())
+    l = []
+    while not q_info.empty():
+        l.append(q_info.get())
+    print(o.id , l)
 
     # for t in threads:
     #     t.join()
 
 if __name__ == "__main__":
-    to = int(round(time.time() * 1000))
-    # IPC
-    q = Queue()
-    o_list = []
     # Initialize the nodes
     nodes = int(input("> Size of the system = "))
     ports_list = [0]*nodes*(nodes-1)
@@ -157,17 +185,25 @@ if __name__ == "__main__":
             port = socky.getsockname()[1]
             ports_list[i*(nodes-1)+j] = port
             socky.close()
-    # print(ports_list)
+
+    print(ports_list)
     distribute(ports_list, nodes)
     print(ports_list)
-    # print(which_osc(ports_list,nodes))
     osc = which_osc(ports_list,nodes)
+    print(osc)
+
+    # to = int(round(time.time() * 1000))
+    now = datetime.now()
+    to = datetime.timestamp(now)
+    # IPC
+    q = Queue()
+    o_list = []
 
     with open('project/data.txt','r') as f:
         for n in range(nodes):
             try :
                 data = f.readline().split(',')
-                t = threading.Thread(target=replica, args=(ports_list[n*(nodes-1):n*(nodes-1)+nodes-1],n,data[0],data[1],q,o_list,nodes,to,osc[n*(nodes-1):n*(nodes-1)+nodes-1]))
+                t = threading.Thread(target=replica, args=(ports_list[n*(nodes-1):n*(nodes-1)+nodes-1],n,data[0],q,o_list,nodes,to,osc[n*(nodes-1):n*(nodes-1)+nodes-1]))
                 threads.append(t)
                 t.daemon = True
                 t.start()

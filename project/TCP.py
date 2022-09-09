@@ -1,4 +1,5 @@
-# GREEN
+from datetime import datetime
+import os
 import socket
 import selectors
 import time
@@ -12,14 +13,17 @@ class Node(object):
         self.hostname = hostname
         self.port = port
 
-    def start(self,o,to,q,osc):
+    def start(self,o,to,q,osc,signal):
 
-        ti = int(round(time.time() * 1000))
-        msg = str.encode("S"+str(o.omega)+"/"+str(ti-to)+"E")
-        o.evolution.append(msg)
+        # ti = int(round(time.time() * 1000))
+        now = datetime.now()
+        ti = datetime.timestamp(now)
+        msg = str.encode("S"+str(osc)+'/'+str(o.id)+'/'+str(o.omega)+"/"+str(ti-to)+"E")
+        o.evolution[ti-to] = o.omega
         messages = [msg for i in range(0,LOOP)]
         data = types.SimpleNamespace(
-            msg_total=sum(len(m) for m in messages),
+            # msg_total=sum(len(m) for m in messages),
+            msg_total=LOOP,
             recv_total=0,
             messages=messages.copy(),
             outb=b"",
@@ -54,9 +58,16 @@ class Node(object):
                                         recv_data = sock.recv(1024)
                                         if recv_data:
                                             print(f"\033[92m{o.id} : Received {recv_data!r} from {osc} on port {self.port}\033[0m")
-                                            q.put(osc)
-                                            q.put(recv_data)
-                                        else:
+                                            aux = recv_data.decode()
+                                            aux = aux.strip('ES')
+                                            # print(aux)
+                                            l = aux.split('/',1)
+                                            # print(l)
+                                            if l[0]==str(o.id):
+                                                q.put(l[1])
+                                            data.recv_total += 1
+                                            signal.set()
+                                        if not recv_data or data.recv_total == data.msg_total:
                                             # print(f"Closing connection of {o.id} to {osc}")
                                             sel.unregister(sock)
                                             sock.close()
@@ -64,7 +75,7 @@ class Node(object):
                                         if not data.outb and data.messages:
                                             data.outb = data.messages.pop(0)
                                         if data.outb:
-                                            print(f"\033[92m{o.id} : Sending {data.outb!r} to {osc} on port {self.port}\033[0m")
+                                            print(f"\033[31m{o.id} : Sending {data.outb!r} to {osc} on port {self.port}\033[0m")
                                             sent = sock.send(data.outb)
                                             data.outb = data.outb[sent:]
                     except KeyboardInterrupt:
